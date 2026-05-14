@@ -187,6 +187,76 @@ See the kit's \`RECIPE.md\` for the full pipeline reference.
 `;
 fs.writeFileSync(path.join(demoDir, "README.md"), readme);
 
+// ── Write / append project-level CLAUDE.md so future Claude Code
+//    sessions in the project auto-load the handoff context (no pasting).
+const HANDOFF_START = "<!-- ndemo-kit:handoff-start -->";
+const HANDOFF_END = "<!-- ndemo-kit:handoff-end -->";
+const handoffBlock = `${HANDOFF_START}
+# Demos (ndemo-kit)
+
+This project uses **ndemo-kit** for narrated browser-demo videos.
+Demo folder for this run: \`demo/${demoName}/\` (app URL: ${appUrl}).
+${isStarter ? "Mode: **starter** — the demo narration drives what gets built.\n" : "Mode: **retrofit** — the demo runs against the existing app.\n"}
+## When the user asks about the demo
+
+1. Verify ndemo + edge-tts are installed (the kit's \`install.sh\` /
+   \`install.ps1\` sets these up; on Windows use \`.ps1\`).
+2. ${isStarter
+   ? "**Starter mode** — read `STARTER_MODE.md` in the kit. The demo narration is the spec for the whole app build. Write narration first → stub routes → add `data-testid`s → wire `NEXT_PUBLIC_DEMO_MODE` mock → only just-enough behaviour. Skip everything not in the playbook."
+   : "**Retrofit mode** — add `data-testid` attributes to the elements the playbook will target. If the UI talks to a live LLM/streaming backend, add the scripted mock from the kit's `examples/demo-script.example.ts`. Apply Tailwind v4 + Turbopack tweaks if needed (see kit's `RECIPE.md`)."}
+3. Edit \`demo/${demoName}/playbook.yaml\` — narration text + browser actions.
+4. Run \`demo/${demoName}/render.sh\` (or \`.ps1\` / \`node render.mjs\`).
+   It auto-runs \`generate-audio.mjs\` via edge-tts; if unavailable, it
+   writes \`NARRATION_SCRIPT.txt\` with copy-paste prompts the user can
+   feed to any free TTS site, drop the MP3s into \`audio/\`, and re-run.
+
+## Selectors
+
+Whenever you target an element in the playbook, use \`data-testid\`
+attributes. Naming convention: \`<feature>-<element>\` (e.g.
+\`search-input\`, \`pay-fpx\`, \`confirmation-email\`). Role+name
+selectors break when copy changes; testIds survive style refactors.
+
+## Pitfalls to mention proactively
+
+- Env flags must prefix the dev-server command, not be exported after it.
+- If using Tailwind v4: add \`@source not "../../demo";\` to \`globals.css\`.
+- If using Next.js with workspace lockfiles: set
+  \`turbopack.root: path.resolve(__dirname)\` in \`next.config.ts\`.
+- Heavy native deps (some AI SDKs): \`serverExternalPackages: [...]\`.
+
+## Full reference
+
+The complete handoff guide lives in the kit:
+- \`~/tools/ndemo-kit/CLAUDE.md\` — same content as this section
+- \`~/tools/ndemo-kit/RECIPE.md\` — pipeline internals + troubleshooting
+- \`~/tools/ndemo-kit/STARTER_MODE.md\` — demo-driven UI design
+- \`~/tools/ndemo-kit/examples/\` — annotated playbook + scripted-mock example
+
+${HANDOFF_END}`;
+
+const projectClaudeMd = path.join(projectDir, "CLAUDE.md");
+if (!fs.existsSync(projectClaudeMd)) {
+  fs.writeFileSync(projectClaudeMd, handoffBlock + "\n");
+  console.log(`  ✓ wrote ${path.relative(process.cwd(), projectClaudeMd)}`);
+} else {
+  const existing = fs.readFileSync(projectClaudeMd, "utf8");
+  if (existing.includes(HANDOFF_START)) {
+    // Replace the existing handoff block (might be from a previous bootstrap)
+    const replaced = existing.replace(
+      new RegExp(`${HANDOFF_START}[\\s\\S]*?${HANDOFF_END}`),
+      handoffBlock,
+    );
+    fs.writeFileSync(projectClaudeMd, replaced);
+    console.log(`  ✓ refreshed ndemo-kit section in ${path.relative(process.cwd(), projectClaudeMd)}`);
+  } else {
+    // Append the block so we don't clobber existing project instructions
+    const sep = existing.endsWith("\n") ? "\n" : "\n\n";
+    fs.appendFileSync(projectClaudeMd, sep + handoffBlock + "\n");
+    console.log(`  ✓ appended ndemo-kit section to ${path.relative(process.cwd(), projectClaudeMd)}`);
+  }
+}
+
 console.log();
 console.log("✓ Demo scaffolded at:");
 console.log(`    ${demoDir}`);
@@ -198,3 +268,6 @@ console.log(`  3. Start your dev server at ${appUrl}`);
 console.log(`  4. ./render.sh           (Unix)`);
 console.log(`     .\\render.ps1          (Windows)`);
 console.log(`     node render.mjs       (any platform)`);
+console.log();
+console.log("Claude Code opened in this project will auto-load the handoff");
+console.log("context from CLAUDE.md — no need to paste prompts.");

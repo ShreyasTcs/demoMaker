@@ -149,9 +149,14 @@ Use when the app already exists. Minimal additive changes:
    `RECIPE.md`).
 4. Author the playbook against the existing UI.
 
-For Claude-driven work, paste `HANDOFF_PROMPT.md` into a Claude Code
-session in the target project — Claude auto-detects the mode and
-follows the right authoring order.
+For Claude-driven work, **no pasting needed**. When you run
+`new-demo.sh`, the kit writes (or appends a marked section to)
+`<project>/CLAUDE.md` with the full handoff context. Any Claude
+Code session started in that project auto-loads the instructions —
+mode detection, authoring order, pitfalls, and all.
+
+If you're working *on the kit itself*, the same content lives at
+`~/tools/ndemo-kit/CLAUDE.md` and is auto-loaded there too.
 
 ---
 
@@ -188,7 +193,7 @@ demo.mp4 / demo.srt        ← final outputs at the demo dir root
 | `examples/demo-script.example.ts` | Scripted-mode mock for AI/streaming apps |
 | `STARTER_MODE.md` | Demo-driven design principles for new projects |
 | `RECIPE.md` | Pipeline internals, why each trick exists, troubleshooting |
-| `HANDOFF_PROMPT.md` | Prompt for handing demo work to Claude Code |
+| `CLAUDE.md` | Auto-loaded handoff context for Claude Code sessions in this dir |
 
 ---
 
