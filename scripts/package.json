@@ -1,0 +1,9 @@
+{
+  "name": "ndemo-kit-scripts",
+  "private": true,
+  "type": "module",
+  "description": "Per-demo helper scripts. Installed into each demo folder by new-demo.sh.",
+  "dependencies": {
+    "yaml": "^2.5.0"
+  }
+}

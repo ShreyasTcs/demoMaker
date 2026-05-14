@@ -1,0 +1,158 @@
+# ───────────────────────────────────────────────────────────────────
+#  Annotated example playbook for ndemo-kit
+#
+#  Demonstrates every action type and condition you'll use. Copy
+#  segments out of here into your own playbook.yaml as starting points.
+# ───────────────────────────────────────────────────────────────────
+
+app:
+  url: "http://localhost:3000"
+  viewport: { width: 1920, height: 1080 }
+  scale: 1                  # 1 = 1080p output, 2 = "retina-like" 4K
+  zoom: 1.0                 # CSS zoom — bump to 1.25 for denser UIs
+  colorScheme: light        # light | dark
+  # Optional setup steps that run BEFORE every render. Use to restore
+  # fixture data, log in, or seed state.
+  # setup:
+  #   - run: cp fixtures/data.json data/data.json
+  #   - type: click
+  #     target: { role: link, name: "Login" }
+  #     if: { hidden: ".user-info" }       # only run if not logged in
+
+# ── TTS section ────────────────────────────────────────────────────
+# These values feed ndemo's audio-cache hash. Keep them stable; they're
+# identifiers, NOT the voice you hear. The actual voice is chosen by
+# generate-audio.mjs via --voice flag (default: en-US-AndrewNeural).
+tts:
+  provider: openai
+  voice: alloy
+  speed: 1.0
+
+recording:
+  outputDir: video-raw      # frames + intermediate files land here
+  fps: 30
+
+# ── Title card (optional, shown for N ms before segment 1) ────────
+# titleCard:
+#   title: "How our app works"
+#   subtitle: "A 90-second tour"
+#   duration: 3000
+
+segments:
+  # ── 1. Plain wait — useful for the opening establishing shot ─────
+  - id: intro
+    intent: "Land on homepage; let the eye settle"
+    narration: |
+      Welcome to our application. In this tour we'll cover the three
+      main flows: searching, building, and sharing.
+    timing: parallel          # actions run alongside narration (vs `after`)
+    actions:
+      - { type: wait, duration: 4000 }
+
+  # ── 2. Click + type + press, with done conditions ────────────────
+  - id: search-flow
+    intent: "Open search, type a query, hit enter"
+    narration: |
+      Searching takes one click. You type your query, hit enter,
+      and results stream in instantly.
+    timing: parallel
+    actions:
+      # CLICK — by accessible name (preferred — survives style changes)
+      - type: click
+        target: { role: button, name: "Search" }
+        done: { visible: '[data-testid="search-modal"]' }
+
+      # WAIT — pure time-based pause
+      - type: wait
+        duration: 600
+
+      # TYPE — slow enough to look human (delay = ms per char)
+      - type: type
+        target: { testId: search-input }
+        text: "annual revenue trends"
+        delay: 45
+
+      # PRESS — single key event
+      - type: press
+        key: Enter
+        done:
+          # Wait until the results panel is text-populated, or 8 s max
+          text: { selector: ".results-count", has: "results" }
+          timeout: 8000
+
+      - type: wait
+        duration: 3000
+
+  # ── 3. Hover + scroll examples ───────────────────────────────────
+  - id: hover-and-scroll
+    intent: "Show tooltip then scroll a list"
+    narration: |
+      Hovering reveals contextual details. The list itself scrolls
+      smoothly even with thousands of rows.
+    timing: parallel
+    actions:
+      - type: hover
+        target: { selector: ".result-card:first-child .info-icon" }
+        done: { visible: ".tooltip" }
+      - type: wait
+        duration: 2000
+
+      - type: scroll
+        target: { testId: results-list }
+        done: { stable: 600 }
+      - type: wait
+        duration: 2500
+
+  # ── 4. select <option> from a dropdown ───────────────────────────
+  - id: filter-dropdown
+    intent: "Apply a category filter"
+    narration: |
+      Filters live in the side panel. Pick a category and the data
+      narrows down instantly.
+    timing: parallel
+    actions:
+      - type: select
+        target: { label: "Category" }
+        option: "Engineering"
+        done: { stable: 500 }
+      - type: wait
+        duration: 2500
+
+  # ── 5. Closing — pure hold ───────────────────────────────────────
+  - id: closing
+    intent: "Hold the final state"
+    narration: |
+      That's the full flow. Three clicks from search to share.
+    timing: parallel
+    actions:
+      - { type: wait, duration: 3500 }
+
+# ═══════════════════════════════════════════════════════════════════
+#  Target reference — every way to identify a UI element
+# ═══════════════════════════════════════════════════════════════════
+#
+#   { role: button, name: "Save" }        accessible-name (preferred)
+#   { role: textbox, name: "Email" }      labelled form fields
+#   { testId: my-button }                 data-testid attribute
+#   { label: "Email" }                    aria-label / label text
+#   { placeholder: "Search..." }          input placeholder
+#   { text: "Click me" }                  visible text content
+#   { selector: "#my-id" }                CSS selector (last resort)
+#
+# Combine fields to disambiguate when several elements match.
+#
+# ═══════════════════════════════════════════════════════════════════
+#  Done conditions — every way to gate the next action
+# ═══════════════════════════════════════════════════════════════════
+#
+#   { visible: ".panel" }                 element becomes visible
+#   { hidden: ".loading" }                element disappears
+#   { stable: 600 }                       DOM unchanged for N ms
+#   { networkIdle: true }                 no pending requests
+#   { url: "**/settings" }                URL matches pattern
+#   { text: { selector: ".x", has: "Q3" } }   text appears in element
+#   { attribute: { selector: html, name: data-theme, value: dark } }
+#   { timeout: 10000 }                    override default 5 s timeout
+#
+# Every action that mutates the page SHOULD have a done condition.
+# Without one, the next action races against the page update.

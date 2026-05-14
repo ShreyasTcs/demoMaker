@@ -1,0 +1,22 @@
+# Per-demo artifacts (generated outputs — not source)
+**/audio/*.mp3
+**/video-raw/
+**/.ndemo/
+**/demo.mp4
+**/demo.srt
+**/*-video.mp4
+
+# Per-demo node_modules (installed by render.sh on first run)
+**/node_modules/
+
+# OS / editor noise
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
