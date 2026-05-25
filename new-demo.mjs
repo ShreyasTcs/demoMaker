@@ -79,6 +79,7 @@ const SCRIPTS_DIR = path.join(__dirname, "scripts");
 const COPY = [
   "prep-audio.mjs",
   "generate-audio.mjs",
+  "change-voice.mjs",
   "render.mjs",
   "render.sh",
   "render.ps1",
@@ -89,7 +90,7 @@ for (const f of COPY) {
 }
 // Make .mjs and .sh executable on Unix (no-op on Windows)
 if (process.platform !== "win32") {
-  for (const f of ["prep-audio.mjs", "generate-audio.mjs", "render.mjs", "render.sh"]) {
+  for (const f of ["prep-audio.mjs", "generate-audio.mjs", "change-voice.mjs", "render.mjs", "render.sh"]) {
     try {
       fs.chmodSync(path.join(demoDir, f), 0o755);
     } catch {}
@@ -182,6 +183,14 @@ Output: \`demo.mp4\` (+ \`demo.srt\`).
 - macOS / Linux: \`./render.sh\`
 - Windows:       \`.\\render.ps1\`
 - Anywhere:      \`node render.mjs\`
+
+## Changing the voice
+
+\`\`\`
+node change-voice.mjs                    # list available natural voices
+node change-voice.mjs --voice jenny      # switch voice + regenerate audio
+node change-voice.mjs --voice aria --render  # switch + re-render in one step
+\`\`\`
 
 See the kit's \`RECIPE.md\` for the full pipeline reference.
 `;

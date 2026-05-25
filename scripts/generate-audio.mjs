@@ -49,6 +49,31 @@ const RATE = flag("rate", "-5%");
 const PITCH = flag("pitch", "-2Hz");
 const FORCE = has("force");
 const SCRIPT_ONLY = has("script-only");
+const LIST_VOICES = has("list-voices");
+
+const NATURAL_VOICES = [
+  { name: "en-US-AndrewNeural",  label: "Andrew  (US male, warm)"          },
+  { name: "en-US-JennyNeural",   label: "Jenny   (US female, friendly)"    },
+  { name: "en-US-AriaNeural",    label: "Aria    (US female, natural)"     },
+  { name: "en-US-GuyNeural",     label: "Guy     (US male, confident)"     },
+  { name: "en-US-EricNeural",    label: "Eric    (US male, clear)"         },
+  { name: "en-US-BrianNeural",   label: "Brian   (US male, casual)"        },
+  { name: "en-US-EmmaNeural",    label: "Emma    (US female, bright)"      },
+  { name: "en-GB-RyanNeural",    label: "Ryan    (UK male, authoritative)" },
+  { name: "en-GB-SoniaNeural",   label: "Sonia   (UK female, crisp)"       },
+  { name: "en-AU-WilliamNeural", label: "William (AU male, casual)"        },
+];
+
+if (LIST_VOICES) {
+  console.log("\nNatural neural voices available with edge-tts:\n");
+  NATURAL_VOICES.forEach((v, i) =>
+    console.log(`  ${String(i + 1).padStart(2)}.  ${v.name.padEnd(26)}  ${v.label}`)
+  );
+  console.log(`\nUsage:`);
+  console.log(`  node generate-audio.mjs --voice en-US-JennyNeural --force`);
+  console.log(`  node change-voice.mjs --voice jenny --render\n`);
+  process.exit(0);
+}
 
 function which(cmd) {
   const r = spawnSync(isWin ? "where" : "which", [cmd], { stdio: "pipe" });
