@@ -6,9 +6,9 @@
  * render.ps1 (Windows) for convenience.
  *
  * Auto-discovers the playbook *.yaml in this directory. Auto-installs
- * the local yaml dep if missing. Auto-generates missing MP3s via
- * generate-audio.mjs if found, else writes NARRATION_SCRIPT.txt and
- * exits with a clear "go generate your audio" message.
+ * the local yaml dep if missing. Always runs generate-audio.mjs so
+ * stale audio (narration changed since last render) is caught and
+ * regenerated automatically.
  *
  * Env overrides:
  *   NDEMO_BIN=/abs/path/to/ndemo   (default: ~/tools/ndemo/ndemo[.cmd])
@@ -109,33 +109,34 @@ const expected = playbook.segments
 console.log("\n═══ 2/4  Resolving narration audio ═══");
 const audioDir = path.join(__dirname, "audio");
 fs.mkdirSync(audioDir, { recursive: true });
-const missing = expected.filter(
-  (id) => !fs.existsSync(path.join(audioDir, `${id}.mp3`)),
-);
 
-if (missing.length > 0) {
-  console.log(`  missing: ${missing.join(", ")}`);
-  const genScript = path.join(__dirname, "generate-audio.mjs");
-  if (fs.existsSync(genScript)) {
-    console.log("  → trying auto-generation via generate-audio.mjs");
-    const r = spawnSync(process.execPath, [genScript], {
-      cwd: __dirname,
-      stdio: "inherit",
-    });
-    if (r.status === 2) {
-      // generate-audio.mjs exits 2 when it falls back to writing the
-      // narration-script file. Stop cleanly and prompt the user.
-      console.log("\n══════════════════════════════════════════════════════════");
-      console.log(" Auto-generation unavailable — falling back to manual flow.");
-      console.log("══════════════════════════════════════════════════════════");
-      console.log(` See: ${path.join(__dirname, "NARRATION_SCRIPT.txt")}`);
-      console.log(" Generate the MP3s on any free TTS site, drop them into");
-      console.log(` ${path.relative(process.cwd(), audioDir)}/`);
-      console.log(" then re-run this script.");
-      process.exit(2);
-    }
-    if (r.status !== 0) fail("generate-audio.mjs failed", r.status ?? 1);
-  } else {
+// Always run generate-audio.mjs — it skips unchanged files (via hash) and
+// auto-regenerates any segment whose narration text has changed since the
+// last render. This prevents stale audio from a previous narration edit
+// silently making it into the video.
+const genScript = path.join(__dirname, "generate-audio.mjs");
+if (fs.existsSync(genScript)) {
+  const r = spawnSync(process.execPath, [genScript], {
+    cwd: __dirname,
+    stdio: "inherit",
+  });
+  if (r.status === 2) {
+    console.log("\n══════════════════════════════════════════════════════════");
+    console.log(" Auto-generation unavailable — falling back to manual flow.");
+    console.log("══════════════════════════════════════════════════════════");
+    console.log(` See: ${path.join(__dirname, "NARRATION_SCRIPT.txt")}`);
+    console.log(" Generate the MP3s on any free TTS site, drop them into");
+    console.log(` ${path.relative(process.cwd(), audioDir)}/`);
+    console.log(" then re-run this script.");
+    process.exit(2);
+  }
+  if (r.status !== 0) fail("generate-audio.mjs failed", r.status ?? 1);
+} else {
+  // No generate-audio.mjs — check manually
+  const missing = expected.filter(
+    (id) => !fs.existsSync(path.join(audioDir, `${id}.mp3`)),
+  );
+  if (missing.length > 0) {
     fail(
       `Missing MP3s and no generate-audio.mjs to fall back to.\n  Drop these files into ${audioDir}/:\n    ${missing.map((m) => m + ".mp3").join("\n    ")}`,
     );
@@ -160,12 +161,28 @@ console.log("  A chromium window will open and run the demo. Don't close it.");
 process.env.OPENAI_API_KEY ??= "sk-cached-audio-no-call";
 
 const OUTPUT = path.join(__dirname, "demo.mp4");
-const r = spawnSync(NDEMO_BIN, ["render", PLAYBOOK, "--output", OUTPUT], {
-  cwd: __dirname,
-  stdio: "inherit",
-  env: process.env,
-});
-if (r.status !== 0) fail("ndemo render failed", r.status ?? 1);
+
+// Capture ndemo stderr so we can surface the real error on failure.
+// stdout stays inherited so the user sees live rendering progress.
+const ndemoResult = spawnSync(
+  NDEMO_BIN,
+  ["render", PLAYBOOK, "--output", OUTPUT],
+  {
+    cwd: __dirname,
+    stdio: ["inherit", "inherit", "pipe"],
+    env: process.env,
+  },
+);
+
+if (ndemoResult.status !== 0) {
+  const errText = ndemoResult.stderr?.toString().trim();
+  if (errText) {
+    console.error("\n── ndemo stderr ─────────────────────────────────────────");
+    console.error(errText);
+    console.error("─────────────────────────────────────────────────────────");
+  }
+  fail("ndemo render failed", ndemoResult.status ?? 1);
+}
 
 if (!fs.existsSync(OUTPUT)) fail(`Render finished but ${OUTPUT} not found`);
 
@@ -176,9 +193,11 @@ try {
   )
     .toString()
     .trim();
+  const durSec = Math.round(parseFloat(probe));
+  const dur = `${Math.floor(durSec / 60)}m ${durSec % 60}s`;
   const sizeMb = (fs.statSync(OUTPUT).size / 1024 / 1024).toFixed(1);
   console.log(`\n✓ Done`);
-  console.log(`  Video:     ${OUTPUT}  (${sizeMb} MB, ${probe}s)`);
+  console.log(`  Video:     ${OUTPUT}  (${sizeMb} MB, ${dur})`);
   const srt = OUTPUT.replace(/\.mp4$/, ".srt");
   if (fs.existsSync(srt)) console.log(`  Subtitles: ${srt}`);
 } catch {

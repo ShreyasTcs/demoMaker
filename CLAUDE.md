@@ -145,3 +145,26 @@ One file at `<project>/demo/<demo-name>/demo.mp4` plus a matching `.srt`.
   webpack doesn't traverse them on every compile.
 - **First render is slow.** Playwright cold start + ffmpeg assembly
   adds ~30 s. Re-renders are faster.
+- **SPA navigation done conditions.** For Next.js App Router (and any
+  SPA with client-side routing), `done: { url }` and
+  `done: { visible }` are unreliable — client-side navigation
+  invalidates the Playwright page context before those conditions
+  resolve, causing a "Target page, context or browser has been closed"
+  crash. **Always use `done: { stable: 1000 }` for navigation clicks
+  in SPAs.** The stable condition simply waits for the page to settle
+  after the click rather than waiting for a specific URL or element.
+- **testId placement.** Put `data-testid` on the interactive element
+  itself — `<a>` (Next.js `<Link>`), `<button>`, `<input>` — not on
+  a wrapper `<div>`. Playwright clicks the element's bounding-box
+  centre; if the testId is on a container, the click may land in
+  padding or between children and fail to trigger the event handler.
+- **Stale audio after editing narration.** `generate-audio.mjs` now
+  stores a hash sidecar (`audio/<id>.hash`) and automatically
+  regenerates any segment whose narration text changed since the last
+  run. `render.mjs` always calls `generate-audio.mjs` so stale files
+  are caught before every render. Use `--force` to regenerate all
+  clips regardless of hash.
+- **Viewport size.** The default scaffold uses 1280×720. At 1920×1080,
+  apps that constrain content width with `max-w-*` Tailwind classes
+  leave large empty grey areas in the video. Match the playbook
+  viewport to the app's effective content width.

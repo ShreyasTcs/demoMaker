@@ -108,7 +108,7 @@ const playbook = `# ${demoName} — demo playbook.
 
 app:
   url: "${appUrl}"
-  viewport: { width: 1920, height: 1080 }
+  viewport: { width: 1280, height: 720 }
   scale: 1
   zoom: 1.0
   colorScheme: light
@@ -141,6 +141,18 @@ segments:
       maps to a narration clip plus a sequence of browser actions.
     timing: parallel
     actions:
+      # IMPORTANT — done conditions for navigation:
+      #   SPA / Next.js App Router: always use  done: { stable: 1000 }
+      #   done: { url } and done: { visible } are unreliable in SPAs because
+      #   client-side navigation invalidates the Playwright page context before
+      #   those conditions resolve, causing a "Target page closed" crash.
+      #
+      # IMPORTANT — testId placement:
+      #   Put data-testid on the interactive element itself (<a>, <button>,
+      #   <input>) — NOT on a wrapper div. Clicking a div's center may not
+      #   reach the child element that handles the click event.
+      #
+      # - { type: click, target: { testId: "nav-item" }, done: { stable: 1000 } }
       # - { type: click, target: { role: button, name: "Start" }, done: { stable: 500 } }
       # - { type: type,  target: { testId: "search" }, text: "hello", delay: 50 }
       # - { type: wait,  duration: 3000 }
@@ -233,6 +245,16 @@ selectors break when copy changes; testIds survive style refactors.
 - If using Next.js with workspace lockfiles: set
   \`turbopack.root: path.resolve(__dirname)\` in \`next.config.ts\`.
 - Heavy native deps (some AI SDKs): \`serverExternalPackages: [...]\`.
+- **SPA navigation done conditions** — For Next.js App Router and any SPA,
+  \`done: { url }\` and \`done: { visible }\` are unreliable. Use
+  \`done: { stable: 1000 }\` for all navigation clicks in SPAs.
+- **testId on interactive elements** — Place \`data-testid\` on \`<a>\`, \`<button>\`,
+  \`<input>\` — not on wrapper divs. Clicking a div's centre may miss the
+  child that handles the click event.
+- **Stale audio** — render.mjs now auto-detects changed narration via hash
+  sidecar files (\`audio/*.hash\`) and regenerates automatically.
+- **Viewport size** — Default is 1280×720. Apps with \`max-w-*\` constraints show
+  large empty areas at 1920×1080. Match viewport to the app's content width.
 
 ## Full reference
 

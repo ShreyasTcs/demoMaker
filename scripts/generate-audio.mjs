@@ -27,6 +27,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 process.chdir(__dirname);
@@ -91,6 +92,11 @@ function findPlaybook() {
   );
   if (named) return path.join(__dirname, named);
   return path.join(__dirname, yamls[0]);
+}
+
+/** Short hash of narration text — used to detect stale cached MP3s. */
+function hashText(str) {
+  return createHash("md5").update(str).digest("hex").slice(0, 12);
 }
 
 // Lazy-install yaml dep if missing
@@ -236,16 +242,27 @@ const failures = [];
 
 for (const seg of segments) {
   const out = path.join(audioDir, `${seg.id}.mp3`);
+  const hashFile = path.join(audioDir, `${seg.id}.hash`);
+  const currentHash = hashText(seg.text);
+  const storedHash = fs.existsSync(hashFile) ? fs.readFileSync(hashFile, "utf8").trim() : "";
+
   if (fs.existsSync(out) && !FORCE) {
-    console.log(`  ↪ ${seg.id.padEnd(18)} (exists — use --force to overwrite)`);
-    skipped++;
-    continue;
+    if (storedHash === currentHash) {
+      console.log(`  ↪ ${seg.id.padEnd(18)} (unchanged)`);
+      skipped++;
+      continue;
+    }
+    // Narration changed — delete stale file and regenerate
+    console.log(`  ↻ ${seg.id.padEnd(18)} (narration changed — regenerating)`);
+    fs.unlinkSync(out);
   }
+
   process.stdout.write(`  → ${seg.id.padEnd(18)} (${seg.text.length} chars) … `);
   try {
     if (ENGINE === "google") await googleTts(seg.text, out);
     else edgeTts(seg.text, out);
     console.log("✓");
+    fs.writeFileSync(hashFile, currentHash);
     generated++;
   } catch (err) {
     console.log("✗");
@@ -263,4 +280,4 @@ if (failed > 0) {
 }
 
 console.log(`\n✓ Generated ${generated} MP3s (${skipped} skipped) in audio/`);
-console.log(`  Next: ./render.sh   (or .\\render.ps1 / node render.mjs)`);
+if (generated > 0) console.log(`  Next: ./render.sh   (or .\\render.ps1 / node render.mjs)`);
